@@ -49,6 +49,7 @@ namespace detail {
 /**
  * Saves margins at thread boundaries.
  */
+#ifdef _REENTRANT
 template <class Cfg>
 std::pair<int, typename Cfg::difference_type> Sorter<Cfg>::saveMargins(int last_bucket) {
     // Find last bucket boundary in this thread's area
@@ -80,6 +81,7 @@ std::pair<int, typename Cfg::difference_type> Sorter<Cfg>::saveMargins(int last_
 
     return {last_bucket, end - tail};
 }
+#endif // _REENTRANT
 
 /**
  * Fills margins from buffers.
@@ -152,7 +154,13 @@ void Sorter<Cfg>::writeMargins(const int first_bucket, const int last_bucket,
 
         // Write elements from buffers
         for (int t = 0; t < num_threads_; ++t) {
-            auto& buffers = kIsParallel ? shared_->local[t]->buffers : local_.buffers;
+            decltype(local_.buffers)*buffers_ptr = nullptr;
+            if constexpr (kIsParallel) {
+                buffers_ptr = &shared_->local[t]->buffers;
+            } else {
+                buffers_ptr = &local_.buffers;
+            }
+            auto& buffers = *buffers_ptr;
             auto src = buffers.data(i);
             auto count = buffers.size(i);
 

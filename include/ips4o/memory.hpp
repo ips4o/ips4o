@@ -45,7 +45,9 @@
 #include <utility>
 #include <vector>
 
+#ifdef _REENTRANT
 #include <tbb/concurrent_queue.h>
+#endif // _REENTRANT
 
 #include "ips4o_fwd.hpp"
 #include "bucket_pointers.hpp"
@@ -225,6 +227,7 @@ struct BigTask {
     bool has_task;
 };
 
+#ifdef _REENTRANT
 /**
  * Data shared between all threads.
  */
@@ -276,6 +279,7 @@ struct Sorter<Cfg>::SharedData {
         scheduler.reset();
     }
 };
+#endif // _REENTRANT
 
 }  // namespace detail
 }  // namespace ips4o

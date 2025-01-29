@@ -143,7 +143,9 @@ class Sorter {
     template <bool kEqualBuckets, bool kIsParallel>
     void permuteBlocks();
 
+#ifdef _REENTRANT
     inline std::pair<int, diff_t> saveMargins(int last_bucket);
+#endif // _REENTRANT
 
     template <bool kIsParallel>
     void writeMargins(int first_bucket, int last_bucket, int overflow_bucket,

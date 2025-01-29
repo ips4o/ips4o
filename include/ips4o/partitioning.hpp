@@ -66,7 +66,7 @@ std::pair<int, bool> Sorter<Cfg>::partition(const iterator begin, const iterator
     // Sampling
     bool use_equal_buckets = false;
     {
-        if (!kIsParallel) {
+        if constexpr (!kIsParallel) {
             std::tie(this->num_buckets_, use_equal_buckets) =
                     buildClassifier(begin, end, local_.classifier);
         } else {
@@ -83,10 +83,14 @@ std::pair<int, bool> Sorter<Cfg>::partition(const iterator begin, const iterator
 
     // Set parameters for this partitioning step
     // Must do this AFTER sampling, because sampling will recurse to sort splitters.
-    this->classifier_ = kIsParallel ? &shared_->classifier : &local_.classifier;
+    if constexpr (kIsParallel) {
+        this->classifier_ = &shared_->classifier;
+    this->bucket_pointers_ = shared_->bucket_pointers;
+    } else {
+        this->classifier_ = &local_.classifier;
+        this->bucket_pointers_ = local_.bucket_pointers;
+    }
     this->bucket_start_ = bucket_start;
-    this->bucket_pointers_ =
-            kIsParallel ? shared_->bucket_pointers : local_.bucket_pointers;
     this->overflow_ = nullptr;
     this->begin_ = begin;
     this->end_ = end;
@@ -99,7 +103,7 @@ std::pair<int, bool> Sorter<Cfg>::partition(const iterator begin, const iterator
 #endif
 
     // Local Classification
-    if (kIsParallel)
+    if constexpr (kIsParallel)
         parallelClassification(use_equal_buckets);
     else
         sequentialClassification(use_equal_buckets);
@@ -118,10 +122,10 @@ std::pair<int, bool> Sorter<Cfg>::partition(const iterator begin, const iterator
     else
         permuteBlocks<false, kIsParallel>();
 
-    if (kIsParallel && overflow_)
+    if constexpr (kIsParallel && overflow_)
         shared_->overflow = &local_.overflow;
 
-    if (kIsParallel) shared_->sync.barrier();
+    if constexpr (kIsParallel) shared_->sync.barrier();
 
 #ifdef IPS4O_TIMER
     g_permutation.stop(end - begin, "perm");
@@ -130,7 +134,7 @@ std::pair<int, bool> Sorter<Cfg>::partition(const iterator begin, const iterator
 
     // Cleanup
     {
-        if (kIsParallel) overflow_ = shared_->overflow;
+        if constexpr (kIsParallel) overflow_ = shared_->overflow;
 
         // Distribute buckets among threads
         const int num_buckets = num_buckets_;
@@ -141,17 +145,18 @@ std::pair<int, bool> Sorter<Cfg>::partition(const iterator begin, const iterator
         my_last_bucket = num_buckets < my_last_bucket ? num_buckets : my_last_bucket;
 
         // Save excess elements at right end of stripe
-        const auto in_swap_buffer = !kIsParallel
-                                            ? std::pair<int, diff_t>(-1, 0)
-                                            : saveMargins(my_last_bucket);
-        if (kIsParallel) shared_->sync.barrier();
+        auto in_swap_buffer =  std::pair<int, diff_t>(-1, 0);
+#ifdef _REENTRANT
+        if constexpr (!kIsParallel) in_swap_buffer = saveMargins(my_last_bucket);
+#endif // _REENTRANT
+        if constexpr (kIsParallel) shared_->sync.barrier();
 
         // Write remaining elements
         writeMargins<kIsParallel>(my_first_bucket, my_last_bucket, overflow_bucket,
                                   in_swap_buffer.first, in_swap_buffer.second);
     }
 
-    if (kIsParallel) shared_->sync.barrier();
+    if constexpr (kIsParallel) shared_->sync.barrier();
     local_.reset();
 
 #ifdef IPS4O_TIMER

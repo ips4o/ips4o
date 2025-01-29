@@ -42,7 +42,9 @@
 #include <numeric>
 #include <vector>
 
+#ifdef _REENTRANT
 #include <tbb/concurrent_queue.h>
+#endif // _REENTRANT
 
 namespace ips4o {
 namespace detail {
@@ -112,6 +114,8 @@ class PrivateQueue {
     size_t m_off;
 };
 
+#ifdef _REENTRANT
+
 template <class Job>
 class Scheduler {
  public:
@@ -165,6 +169,6 @@ class Scheduler {
     std::atomic_uint64_t m_num_idle_threads;
     const size_t m_num_threads;
 };
-
+#endif // _REENTRANT
 }  // namespace detail
 }  // namespace ips4o
