@@ -193,9 +193,8 @@ struct Sorter<Cfg>::LocalData {
 
     LocalData(typename Cfg::less comp, char* buffer_storage)
         : buffers(buffer_storage), classifier(std::move(comp)) {
-        std::random_device rdev;
-        std::ptrdiff_t seed = rdev();
-        if (Cfg::kIs64Bit) seed = (seed << (Cfg::kIs64Bit * 32)) | rdev();
+        std::ptrdiff_t seed = 3469931;
+        if (Cfg::kIs64Bit) seed = (seed << (Cfg::kIs64Bit * 32)) | (3469931 + 42);
         random_generator.seed(seed);
         reset();
     }
