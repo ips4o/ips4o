@@ -81,7 +81,10 @@ inline void baseCaseSort(It begin, It end, Comp&& comp) {
 template <class It, class Comp, class ThreadPool>
 inline bool isSorted(It begin, It end, Comp&& comp, ThreadPool& thread_pool) {
     // Do nothing if input is already sorted.
-    std::vector<bool> is_sorted(thread_pool.numThreads());
+
+    // Use std::vector<char> because operator[] in std::vector<bool>
+    // is not thread-safe.
+    std::vector<char> is_sorted(thread_pool.numThreads());
     thread_pool(
             [begin, end, &is_sorted, &comp](int my_id, int num_threads) {
                 const auto size = end - begin;
