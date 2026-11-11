@@ -78,7 +78,8 @@ class Sorter<Cfg>::BucketPointers {
         inline std::pair<diff_t, diff_t> fetchSubMostSignificant(diff_t m) {
             if (kAtomic) {
                 const atomic_type atom_m = static_cast<atomic_type>(m) << kShift;
-                const auto p = __atomic_fetch_sub(&all_, atom_m, __ATOMIC_RELAXED);
+                // Release: pairs with the acquire in fetchAddLeastSignificant().
+                const auto p = __atomic_fetch_sub(&all_, atom_m, __ATOMIC_RELEASE);
                 return {p & kMask, p >> kShift};
             } else {
                 const auto tmp = single_.m_;
@@ -90,7 +91,8 @@ class Sorter<Cfg>::BucketPointers {
         template <bool kAtomic>
         inline std::pair<diff_t, diff_t> fetchAddLeastSignificant(diff_t l) {
             if (kAtomic) {
-                const auto p = __atomic_fetch_add(&all_, l, __ATOMIC_RELAXED);
+                // Acquire: pairs with the release in fetchSubMostSignificant().
+                const auto p = __atomic_fetch_add(&all_, l, __ATOMIC_ACQUIRE);
                 return {p & kMask, p >> kShift};
             } else {
                 const auto tmp = single_.l_;
@@ -192,6 +194,8 @@ class Sorter<Cfg>::BucketPointers {
         if (kAtomic) {
             // Must not be moved after the following fetch_sub, as that could lead to
             // another thread writing to our block, because isReading() returns false.
+            // The fetch_sub is a release and the fetch_add in incWrite() an acquire,
+            // so a writer that is handed our block also sees this increment.
             num_reading_.fetch_add(1, std::memory_order_acquire);
             const auto p =
                     ptr_.template fetchSubMostSignificant<kAtomic>(Cfg::kBlockSize);
